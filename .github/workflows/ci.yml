@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  bash-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y shellcheck shfmt
+
+      - name: Run shfmt
+        run: shfmt -i 2 -sr -d bin src scripts tests
+
+      - name: Run shellcheck
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          shellcheck bin/dat src/**/*.sh scripts/install/example tests/test_dat.sh
+
+      - name: Run tests
+        run: bash tests/test_dat.sh

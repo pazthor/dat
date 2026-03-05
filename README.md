@@ -48,7 +48,11 @@ export PATH="$HOME/.local/bin:$PATH"
 ## Update
 
 ```bash
-"$HOME/.local/share/dat/scripts/self/update"
+dat self update
+# alias:
+dat update
+# check only:
+dat self update --check
 ```
 
 ## Uninstall
@@ -73,14 +77,22 @@ Default source precedence is:
 
 ```bash
 dat
+dat run
 dat list
 dat list --json
+dat self status
+dat self update
+dat update
 dat <app> [args...]
 dat --source dotly <app>
 ```
 
+Running `dat` without arguments shows a home view with built-in commands and
+available installers. In an interactive terminal, it also opens a selectable menu.
+
 ## Default installers included
 
+- `dat dotfiles [path] [--force]`: installs a full dotfiles template structure.
 - `dat fzf`: installs `fzf` using the available package manager.
 - `dat work [path] [--shell] [--no-start]`: prepares a work folder and auto-starts
   `ddev`/`docker compose` when project files are detected.

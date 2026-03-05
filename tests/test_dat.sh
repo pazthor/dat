@@ -85,4 +85,20 @@ invalid_source_code=$?
 set -e
 assert_eq "2" "$invalid_source_code" "invalid source should return code 2"
 
+home_output="$(DOTFILES_PATH="$DOTFILES_FIXTURE" DOTLY_PATH="$DOTLY_FIXTURE" "$DAT_BIN")"
+if ! grep -q '^Available commands:$' <<<"$home_output"; then
+  fail "home output should include available commands"
+fi
+if ! grep -q '^Available installers:$' <<<"$home_output"; then
+  fail "home output should include available installers"
+fi
+
+self_status_output="$(DAT_HOME="$ROOT_DIR" "$DAT_BIN" self status)"
+if ! grep -q '^path: ' <<<"$self_status_output"; then
+  fail "self status should include path"
+fi
+if ! grep -q '^branch: ' <<<"$self_status_output"; then
+  fail "self status should include branch"
+fi
+
 echo "OK"

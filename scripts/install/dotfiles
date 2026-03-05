@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Install the dotfiles template structure into a target directory.
+
+Usage:
+  dotfiles [target_path] [--force]
+  dotfiles -h | --help
+
+Examples:
+  dotfiles
+  dotfiles ~/.dotfiles
+  dotfiles ~/work/my-dotfiles --force
+EOF
+}
+
+target_path="${DOTFILES_PATH:-$HOME/.dotfiles}"
+force=false
+
+for arg in "$@"; do
+  case "$arg" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  --force)
+    force=true
+    ;;
+  *)
+    target_path="$arg"
+    ;;
+  esac
+done
+
+script_path="${BASH_SOURCE[0]}"
+while [[ -L "$script_path" ]]; do
+  link_dir="$(cd "$(dirname "$script_path")" && pwd)"
+  script_path="$(readlink "$script_path")"
+  [[ "$script_path" != /* ]] && script_path="$link_dir/$script_path"
+done
+
+script_dir="$(cd "$(dirname "$script_path")" && pwd)"
+project_root="$(cd "$script_dir/../.." && pwd)"
+template_path="$project_root/templates/dotfiles_template"
+
+if [[ ! -d "$template_path" ]]; then
+  echo "Template directory not found: $template_path" >&2
+  exit 1
+fi
+
+target_path="$(eval echo "$target_path")"
+mkdir -p "$target_path"
+
+if [[ -n "$(ls -A "$target_path")" ]] && ! $force; then
+  echo "Target path is not empty: $target_path" >&2
+  echo "Use --force to overwrite existing files" >&2
+  exit 1
+fi
+
+cp -a "$template_path/." "$target_path/"
+
+escape_for_sed_replacement() {
+  printf "%s" "$1" | sed -e 's/[|&\\]/\\&/g'
+}
+
+replace_placeholder() {
+  local -r file_path="$1"
+  local -r escaped_target="$(escape_for_sed_replacement "$target_path")"
+
+  [[ -f "$file_path" ]] || return 0
+  sed -i.bak "s|XXX_DOTFILES_PATH_XXX|$escaped_target|g" "$file_path"
+  rm -f "$file_path.bak"
+}
+
+replace_placeholder "$target_path/bin/sdot"
+replace_placeholder "$target_path/shell/bash/.bashrc"
+replace_placeholder "$target_path/shell/zsh/.zshenv"
+
+echo "Dotfiles template installed at: $target_path"

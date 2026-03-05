@@ -19,6 +19,18 @@ Using wget:
 bash <(wget -qO- https://raw.githubusercontent.com/pazthor/dat/main/installer)
 ```
 
+Install from a local repository:
+
+```bash
+DAT_REPOSITORY="/absolute/path/to/dat" bash /absolute/path/to/dat/installer
+```
+
+You can also use any git URL:
+
+```bash
+DAT_REPOSITORY="git@github.com:pazthor/dat.git" bash <(curl -fsSL https://raw.githubusercontent.com/pazthor/dat/main/installer)
+```
+
 Manual install:
 
 ```bash
@@ -66,6 +78,15 @@ dat list --json
 dat <app> [args...]
 dat --source dotly <app>
 ```
+
+## Default installers included
+
+- `dat fzf`: installs `fzf` using the available package manager.
+- `dat work [path] [--shell] [--no-start]`: prepares a work folder and auto-starts
+  `ddev`/`docker compose` when project files are detected.
+
+`dat work` runs in a child process, so it cannot change your current shell directory.
+Use `--shell` if you want to drop into an interactive shell inside the selected folder.
 
 ## Environment
 

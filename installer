@@ -8,6 +8,22 @@ DAT_HOME="${DAT_HOME:-$HOME/.local/share/dat}"
 DAT_BIN_DIR="${DAT_BIN_DIR:-$HOME/.local/bin}"
 DAT_LOG_FILE="${DAT_LOG_FILE:-$HOME/dat-installer.log}"
 
+repo_source() {
+  local -r repository="$1"
+
+  case "$repository" in
+  /* | ./* | ../*)
+    printf "%s" "$repository"
+    ;;
+  http://* | https://* | ssh://* | git@* | file://*)
+    printf "%s" "$repository"
+    ;;
+  *)
+    printf "https://github.com/%s.git" "$repository"
+    ;;
+  esac
+}
+
 log() {
   printf "> %s\n" "$1"
 }
@@ -38,9 +54,11 @@ append_log() {
 }
 
 ensure_repo() {
+  local -r source="$(repo_source "$DAT_REPOSITORY")"
+
   if [[ ! -d "$DAT_HOME/.git" ]]; then
     log "Cloning dat into $DAT_HOME"
-    git clone -b "$DAT_BRANCH" "https://github.com/$DAT_REPOSITORY.git" "$DAT_HOME" 2>&1 | append_log "clone dat"
+    git clone -b "$DAT_BRANCH" "$source" "$DAT_HOME" 2>&1 | append_log "clone dat"
     return
   fi
 

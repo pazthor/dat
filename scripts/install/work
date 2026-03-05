@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Prepare a work project folder and optionally start local services.
+
+Usage:
+  work [project_path] [--shell] [--no-start]
+  work -h | --help
+
+Examples:
+  work
+  work ~/work/my-php-app
+  work ~/work/my-php-app --shell
+EOF
+}
+
+target_path="${WORK_PATH:-$HOME/work}"
+open_shell=false
+start_services=true
+
+for arg in "$@"; do
+  case "$arg" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  --shell)
+    open_shell=true
+    ;;
+  --no-start)
+    start_services=false
+    ;;
+  *)
+    target_path="$arg"
+    ;;
+  esac
+done
+
+target_path="$(eval echo "$target_path")"
+mkdir -p "$target_path"
+cd "$target_path"
+
+echo "Using work directory: $target_path"
+
+if $start_services; then
+  started_any=false
+
+  if [[ -f ".ddev/config.yaml" ]]; then
+    if command -v ddev >/dev/null 2>&1; then
+      echo "Starting ddev services"
+      ddev start
+      started_any=true
+    else
+      echo "ddev config detected but ddev command is missing" >&2
+    fi
+  fi
+
+  if [[ -f "docker-compose.yml" || -f "docker-compose.yaml" || -f "compose.yml" || -f "compose.yaml" ]]; then
+    if command -v docker >/dev/null 2>&1; then
+      echo "Starting docker compose services"
+      docker compose up -d
+      started_any=true
+    else
+      echo "Compose file detected but docker command is missing" >&2
+    fi
+  fi
+
+  if ! $started_any; then
+    echo "No ddev or docker compose setup detected"
+  fi
+fi
+
+if $open_shell; then
+  echo "Opening interactive shell in $target_path"
+  exec "${SHELL:-bash}" -l
+fi
+
+echo "Done"

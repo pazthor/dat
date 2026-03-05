@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Install fzf if it is not already available.
+
+Usage:
+  fzf
+  fzf -h | --help
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+if command -v fzf >/dev/null 2>&1; then
+  echo "fzf is already installed"
+  exit 0
+fi
+
+if command -v brew >/dev/null 2>&1; then
+  brew install fzf
+elif command -v apt-get >/dev/null 2>&1; then
+  sudo apt-get update
+  sudo apt-get install -y fzf
+elif command -v dnf >/dev/null 2>&1; then
+  sudo dnf install -y fzf
+elif command -v yum >/dev/null 2>&1; then
+  sudo yum install -y fzf
+elif command -v pacman >/dev/null 2>&1; then
+  sudo pacman -S --noconfirm fzf
+else
+  echo "Could not install fzf automatically: no supported package manager found" >&2
+  exit 1
+fi
+
+echo "fzf installed"

@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+DAT_REPOSITORY="${DAT_REPOSITORY:-pazthor/dat}"
+DAT_BRANCH="${DAT_BRANCH:-main}"
+DAT_HOME="${DAT_HOME:-$HOME/.local/share/dat}"
+DAT_BIN_DIR="${DAT_BIN_DIR:-$HOME/.local/bin}"
+DAT_LOG_FILE="${DAT_LOG_FILE:-$HOME/dat-installer.log}"
+
+log() {
+  printf "> %s\n" "$1"
+}
+
+error() {
+  printf "> ERROR: %s\n" "$1" >&2
+}
+
+require_command() {
+  local -r command_name="$1"
+
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    error "'$command_name' is required but was not found in PATH"
+    error "Install '$command_name' and rerun this installer"
+    exit 1
+  fi
+}
+
+append_log() {
+  local -r step_name="$1"
+
+  touch "$DAT_LOG_FILE"
+  printf -- "----- %s - %s -----\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$step_name" >>"$DAT_LOG_FILE"
+  while IFS= read -r line; do
+    printf "%s\n" "$line" >>"$DAT_LOG_FILE"
+  done
+  printf "\n" >>"$DAT_LOG_FILE"
+}
+
+ensure_repo() {
+  if [[ ! -d "$DAT_HOME/.git" ]]; then
+    log "Cloning dat into $DAT_HOME"
+    git clone -b "$DAT_BRANCH" "https://github.com/$DAT_REPOSITORY.git" "$DAT_HOME" 2>&1 | append_log "clone dat"
+    return
+  fi
+
+  log "Updating existing dat installation in $DAT_HOME"
+  git -C "$DAT_HOME" fetch origin 2>&1 | append_log "fetch dat"
+  git -C "$DAT_HOME" checkout "$DAT_BRANCH" 2>&1 | append_log "checkout branch"
+  git -C "$DAT_HOME" pull --ff-only origin "$DAT_BRANCH" 2>&1 | append_log "pull dat"
+}
+
+ensure_path_hint() {
+  case ":$PATH:" in
+  *":$DAT_BIN_DIR:"*) return ;;
+  esac
+
+  log "Add this line to your shell profile and reload it:"
+  printf "export PATH=\"%s:\$PATH\"\n" "$DAT_BIN_DIR"
+}
+
+main() {
+  require_command git
+
+  mkdir -p "$DAT_HOME"
+  mkdir -p "$DAT_BIN_DIR"
+
+  ensure_repo
+
+  chmod +x "$DAT_HOME/bin/dat"
+  ln -sfn "$DAT_HOME/bin/dat" "$DAT_BIN_DIR/dat"
+
+  log "Verifying installation"
+  "$DAT_BIN_DIR/dat" --help >/dev/null
+
+  log "dat installed successfully"
+  ensure_path_hint
+}
+
+main "$@"

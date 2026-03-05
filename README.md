@@ -5,6 +5,46 @@ dat = Another doTfile.
 `dat` is an app installer launcher built with a hexagonal-lite architecture in Bash.
 It follows convention over configuration.
 
+## Install
+
+Using curl:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/pazthor/dat/main/installer)
+```
+
+Using wget:
+
+```bash
+bash <(wget -qO- https://raw.githubusercontent.com/pazthor/dat/main/installer)
+```
+
+Manual install:
+
+```bash
+git clone https://github.com/pazthor/dat.git "$HOME/.local/share/dat"
+mkdir -p "$HOME/.local/bin"
+ln -sfn "$HOME/.local/share/dat/bin/dat" "$HOME/.local/bin/dat"
+```
+
+If `~/.local/bin` is not in your `PATH`, add:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+## Update
+
+```bash
+"$HOME/.local/share/dat/scripts/self/update"
+```
+
+## Uninstall
+
+```bash
+"$HOME/.local/share/dat/scripts/self/uninstall"
+```
+
 ## Convention
 
 Installers must be executable files in:

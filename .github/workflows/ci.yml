@@ -16,13 +16,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y shellcheck shfmt
 
       - name: Run shfmt
-        run: shfmt -i 2 -sr -d bin src scripts tests
+        run: shfmt -i 2 -sr -d installer bin src scripts tests
 
       - name: Run shellcheck
         shell: bash
         run: |
           shopt -s globstar nullglob
-          shellcheck bin/dat src/**/*.sh scripts/install/example tests/test_dat.sh
+          shellcheck installer bin/dat src/**/*.sh scripts/install/example scripts/self/* tests/test_dat.sh
 
       - name: Run tests
         run: bash tests/test_dat.sh

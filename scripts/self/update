@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+DAT_HOME="${DAT_HOME:-$HOME/.local/share/dat}"
+DAT_BRANCH="${DAT_BRANCH:-main}"
+
+if [[ ! -d "$DAT_HOME/.git" ]]; then
+  echo "dat is not installed at $DAT_HOME" >&2
+  exit 1
+fi
+
+git -C "$DAT_HOME" fetch origin
+git -C "$DAT_HOME" checkout "$DAT_BRANCH"
+git -C "$DAT_HOME" pull --ff-only origin "$DAT_BRANCH"
+
+chmod +x "$DAT_HOME/bin/dat"
+echo "dat updated"

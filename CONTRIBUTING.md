@@ -11,7 +11,7 @@ Thanks for contributing.
 ## Local checks
 
 ```bash
-shfmt -i 2 -sr -d bin src scripts tests
-bash -lc 'shopt -s globstar nullglob; shellcheck bin/dat src/**/*.sh scripts/install/example tests/test_dat.sh'
+shfmt -i 2 -sr -d installer bin src scripts tests
+bash -lc 'shopt -s globstar nullglob; shellcheck installer bin/dat src/**/*.sh scripts/install/example scripts/self/* tests/test_dat.sh'
 bash tests/test_dat.sh
 ```

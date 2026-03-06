@@ -45,6 +45,27 @@ If `~/.local/bin` is not in your `PATH`, add:
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
+## Shell Completions
+
+Tab completion support for bash and zsh.
+
+### Bash
+
+Add to `~/.bashrc`:
+```bash
+source "$HOME/.local/share/dat/completions/dat.bash"
+```
+
+### Zsh
+
+Add to `~/.zshrc` before `compinit`:
+```zsh
+fpath=("$HOME/.local/share/dat/completions" $fpath)
+autoload -Uz compinit && compinit
+```
+
+See [completions/README.md](completions/README.md) for detailed installation instructions and troubleshooting.
+
 ## Update
 
 ```bash

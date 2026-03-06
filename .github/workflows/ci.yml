@@ -22,7 +22,7 @@ jobs:
         shell: bash
         run: |
           shopt -s globstar nullglob
-          shellcheck installer bin/dat src/**/*.sh scripts/install/example scripts/self/* tests/test_dat.sh
+          shellcheck installer bin/dat src/**/*.sh scripts/install/* scripts/self/* tests/test_dat.sh
 
       - name: Run tests
         run: bash tests/test_dat.sh

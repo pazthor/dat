@@ -26,7 +26,7 @@ Run from repo root.
 ### Full quality gate (same spirit as CI)
 ```bash
 shfmt -i 2 -sr -d installer bin src scripts tests
-bash -lc 'shopt -s globstar nullglob; shellcheck installer bin/dat src/**/*.sh scripts/install/example scripts/self/* tests/test_dat.sh'
+bash -lc 'shopt -s globstar nullglob; shellcheck installer bin/dat src/**/*.sh scripts/install/* scripts/self/* tests/test_dat.sh'
 bash tests/test_dat.sh
 ```
 
@@ -42,7 +42,7 @@ shfmt -i 2 -sr -w installer bin src scripts tests
 
 ### Lint
 ```bash
-bash -lc 'shopt -s globstar nullglob; shellcheck installer bin/dat src/**/*.sh scripts/install/example scripts/self/* tests/test_dat.sh'
+bash -lc 'shopt -s globstar nullglob; shellcheck installer bin/dat src/**/*.sh scripts/install/* scripts/self/* tests/test_dat.sh'
 ```
 
 ### Tests
@@ -64,7 +64,7 @@ DAT_HOME="$PWD" bin/dat self status
 CI file: `.github/workflows/ci.yml`.
 CI runs:
 1. `shfmt -i 2 -sr -d installer bin src scripts tests`
-2. `shellcheck installer bin/dat src/**/*.sh scripts/install/example scripts/self/* tests/test_dat.sh`
+2. `shellcheck installer bin/dat src/**/*.sh scripts/install/* scripts/self/* tests/test_dat.sh`
 3. `bash tests/test_dat.sh`
 If local and CI differ, match CI behavior exactly.
 

@@ -125,6 +125,7 @@ Use `--shell` if you want to drop into an interactive shell inside the selected 
 
 - `DOTFILES_PATH` (default: `~/.dotfiles`)
 - `DOTLY_PATH` (default: `$DOTFILES_PATH/modules/dotly`)
+- `DAT_PROMPT_ADAPTER` (default: `auto`) - Prompt adapter to use: `auto`, `rofi`, `gum`, or `fzf`
 
 ## Exit Codes
 

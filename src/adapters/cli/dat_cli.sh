@@ -11,7 +11,10 @@ source "$DAT_SRC_ROOT/domain/source_precedence.sh"
 source "$DAT_SRC_ROOT/adapters/catalog/filesystem_catalog.sh"
 source "$DAT_SRC_ROOT/adapters/executor/shell_executor.sh"
 source "$DAT_SRC_ROOT/adapters/output/stdout_output.sh"
-source "$DAT_SRC_ROOT/adapters/prompt/fzf_prompt.sh"
+source "$DAT_SRC_ROOT/adapters/prompt/prompt_selector.sh"
+
+# Load the appropriate prompt adapter
+dat::adapter::prompt::load
 
 source "$DAT_SRC_ROOT/application/list_installers.sh"
 source "$DAT_SRC_ROOT/application/resolve_installer.sh"

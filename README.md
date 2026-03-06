@@ -127,6 +127,78 @@ Use `--shell` if you want to drop into an interactive shell inside the selected 
 - `DOTLY_PATH` (default: `$DOTFILES_PATH/modules/dotly`)
 - `DAT_PROMPT_ADAPTER` (default: `auto`) - Prompt adapter to use: `auto`, `rofi`, `gum`, or `fzf`
 
+## Integration
+
+### dotly integration
+
+`dat` follows the same installer convention used by dotly and checks both sources:
+
+1. `DOTFILES_PATH/scripts/install/<app>`
+2. `DOTLY_PATH/scripts/install/<app>`
+
+If an installer exists in both places, `DOTFILES_PATH` takes precedence.
+
+Example setup:
+
+```bash
+export DOTFILES_PATH="$HOME/.dotfiles"
+export DOTLY_PATH="$DOTFILES_PATH/modules/dotly"
+```
+
+Examples:
+
+```bash
+# Use precedence (dotfiles first)
+dat node
+
+# Force dotly source
+dat --source dotly node
+
+# List installers from dotly only
+dat list --source dotly
+```
+
+### Omarchy integration
+
+`dat` works well on Omarchy systems for both interactive and scripted workflows.
+
+Recommended environment setup:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+export DOTFILES_PATH="$HOME/.dotfiles"
+export DOTLY_PATH="$DOTFILES_PATH/modules/dotly"
+```
+
+Prompt adapter selection on Omarchy:
+
+```bash
+# Auto mode prefers rofi when GUI is available
+dat
+
+# Force rofi prompt adapter
+DAT_PROMPT_ADAPTER=rofi dat
+
+# Force terminal adapter
+DAT_PROMPT_ADAPTER=gum dat
+```
+
+Interactive and non-interactive examples:
+
+```bash
+# Interactive menu + picker
+dat
+
+# Non-interactive machine output
+dat list --json
+
+# Non-interactive execution
+dat --source dotfiles fzf
+
+# Install dotfiles from local path
+dat self install-dotfiles ~/my-dotfiles
+```
+
 ## Exit Codes
 
 - `0` success

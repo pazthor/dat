@@ -25,6 +25,7 @@ Usage:
   dat list [--json] [--source dotfiles|dotly]
   dat self status
   dat self update [--check]
+  dat self install-dotfiles <source> [target] [--force] [--branch <branch>]
   dat update [--check]
   dat [--source dotfiles|dotly] <app> [args...]
   dat -h | --help
@@ -157,11 +158,13 @@ Available commands:
   self status
   self update
   self update --check
+  self install-dotfiles <source> [target]
   run
 
 Examples:
   dat <app>
   dat self update
+  dat self install-dotfiles ~/my-dotfiles
   dat list --json
 EOF
 
@@ -190,6 +193,8 @@ dat::cli::interactive_home_menu() {
   options+="command: self update"
   options+=$'\n'
   options+="command: self update --check"
+  options+=$'\n'
+  options+="command: self install-dotfiles"
 
   if [[ -n "$installers" ]]; then
     while IFS= read -r installer; do
@@ -215,6 +220,10 @@ dat::cli::interactive_home_menu() {
   "command: self update --check")
     dat::cli::run_self_script update --check
     ;;
+  "command: self install-dotfiles")
+    dat::adapter::output::info "Usage: dat self install-dotfiles <source> [target] [--force] [--branch <branch>]"
+    dat::adapter::output::info "Run 'dat self install-dotfiles --help' for more details"
+    ;;
   installer:*)
     local installer_name="${selected#installer: }"
     dat::application::run_installer "$installer_name" "$source"
@@ -237,8 +246,11 @@ dat::cli::self_command() {
   update)
     dat::cli::run_self_script update "$@"
     ;;
+  install-dotfiles)
+    dat::cli::run_self_script install-dotfiles "$@"
+    ;;
   "")
-    dat::adapter::output::error "Missing self subcommand: use 'status' or 'update'"
+    dat::adapter::output::error "Missing self subcommand: use 'status', 'update', or 'install-dotfiles'"
     return "$DAT_EXIT_NOT_FOUND"
     ;;
   *)

@@ -1,0 +1,679 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# ============================================================================
+# Configuration
+# ============================================================================
+
+DAT_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/dat"
+DAT_CONFIG_FILE="$DAT_CONFIG_DIR/config"
+DOTFILES_PATH="${DOTFILES_PATH:-$HOME/.dotfiles}"
+
+# Omarchy config paths to detect
+OMARCHY_CONFIG_PATHS=(
+  "hypr"
+  "waybar"
+  "walker"
+  "alacritty"
+  "kitty"
+  "ghostty"
+  "mako"
+)
+
+# ============================================================================
+# Output helpers
+# ============================================================================
+
+info() {
+  printf "%s\n" "$*"
+}
+
+warn() {
+  printf "Warning: %s\n" "$*" >&2
+}
+
+error() {
+  printf "Error: %s\n" "$*" >&2
+}
+
+success() {
+  printf "%s\n" "$*"
+}
+
+# ============================================================================
+# Config file support
+# ============================================================================
+
+load_config() {
+  if [[ -f "$DAT_CONFIG_FILE" ]]; then
+    # shellcheck source=/dev/null
+    source "$DAT_CONFIG_FILE"
+  fi
+}
+
+init_config() {
+  mkdir -p "$DAT_CONFIG_DIR"
+  if [[ ! -f "$DAT_CONFIG_FILE" ]]; then
+    cat > "$DAT_CONFIG_FILE" <<'EOF'
+# dat configuration file
+# Uncomment and modify as needed
+
+# Default target for dotfiles installation
+# DAT_DOTFILES_TARGET="$HOME/.dotfiles"
+
+# Enable omarchy integration (auto-detect and offer restarts)
+# DAT_OMARCHY_INTEGRATION="true"
+
+# Auto-restart omarchy services after install
+# DAT_AUTO_RESTART_SERVICES="false"
+EOF
+    info "Created config file: $DAT_CONFIG_FILE"
+  else
+    info "Config file exists: $DAT_CONFIG_FILE"
+  fi
+}
+
+# ============================================================================
+# Interactive selection (fzf with fallback)
+# ============================================================================
+
+prompt_select() {
+  local -r prompt_text="$1"
+  local -r options="$2"
+
+  if command -v fzf > /dev/null 2>&1; then
+    printf "%s\n" "$options" | fzf --prompt="$prompt_text " --height=40%
+    return "$?"
+  fi
+
+  # Fallback to numbered menu
+  local -a lines=()
+  local line=""
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    lines+=("$line")
+  done <<< "$options"
+
+  [[ "${#lines[@]}" -gt 0 ]] || return 1
+
+  info ""
+  info "$prompt_text"
+  local i=1
+  for line in "${lines[@]}"; do
+    printf "  %s) %s\n" "$i" "$line"
+    i=$((i + 1))
+  done
+
+  local selected_index=""
+  read -r -p "Select [1-${#lines[@]}]: " selected_index
+
+  if [[ ! "$selected_index" =~ ^[0-9]+$ ]] || ((selected_index < 1 || selected_index > ${#lines[@]})); then
+    return 1
+  fi
+
+  printf "%s\n" "${lines[$((selected_index - 1))]}"
+}
+
+prompt_confirm() {
+  local -r prompt_text="$1"
+  local -r default="${2:-y}"
+
+  local hint="[Y/n]"
+  [[ "$default" == "n" ]] && hint="[y/N]"
+
+  local response=""
+  read -r -p "$prompt_text $hint " response
+
+  response="${response:-$default}"
+  [[ "${response,,}" == "y" || "${response,,}" == "yes" ]]
+}
+
+prompt_input() {
+  local -r prompt_text="$1"
+  local -r default="$2"
+
+  local response=""
+  read -r -p "$prompt_text [$default]: " response
+  printf "%s" "${response:-$default}"
+}
+
+# ============================================================================
+# Structure detection
+# ============================================================================
+
+detect_structure() {
+  local -r source_path="$1"
+  local -a detected=()
+
+  # Shell configs
+  if [[ -d "$source_path/shell" ]] || [[ -f "$source_path/.bashrc" ]] || [[ -f "$source_path/.zshrc" ]]; then
+    detected+=("shell")
+  fi
+
+  # Git config
+  if [[ -d "$source_path/git" ]] || [[ -f "$source_path/.gitconfig" ]]; then
+    detected+=("git")
+  fi
+
+  # Editor configs
+  if [[ -d "$source_path/editors" ]] || [[ -d "$source_path/.config/nvim" ]] || [[ -d "$source_path/vim" ]]; then
+    detected+=("editors")
+  fi
+
+  # Omarchy/Hyprland configs
+  for cfg in "${OMARCHY_CONFIG_PATHS[@]}"; do
+    if [[ -d "$source_path/.config/$cfg" ]] || [[ -d "$source_path/$cfg" ]]; then
+      detected+=("omarchy")
+      break
+    fi
+  done
+
+  # Install scripts
+  if [[ -f "$source_path/install.sh" ]] || [[ -f "$source_path/setup.sh" ]]; then
+    detected+=("install-script")
+  fi
+
+  # Symlink configs
+  if [[ -d "$source_path/symlinks" ]] || [[ -f "$source_path/.stow-local-ignore" ]]; then
+    detected+=("symlinks")
+  fi
+
+  # Scripts directory
+  if [[ -d "$source_path/scripts" ]] || [[ -d "$source_path/bin" ]]; then
+    detected+=("scripts")
+  fi
+
+  printf "%s\n" "${detected[@]}"
+}
+
+detect_omarchy_configs() {
+  local -r source_path="$1"
+  local -a found=()
+
+  for cfg in "${OMARCHY_CONFIG_PATHS[@]}"; do
+    if [[ -d "$source_path/.config/$cfg" ]]; then
+      found+=("$cfg")
+    elif [[ -d "$source_path/$cfg" ]]; then
+      found+=("$cfg")
+    fi
+  done
+
+  printf "%s\n" "${found[@]}"
+}
+
+# ============================================================================
+# Dry run support
+# ============================================================================
+
+dry_run_report() {
+  local -r source_path="$1"
+  local -r target_path="$2"
+
+  info ""
+  info "Dry run - no changes will be made"
+  info "================================="
+  info ""
+  info "Source: $source_path"
+  info "Target: $target_path"
+  info ""
+
+  # Detect structure
+  local structure
+  structure="$(detect_structure "$source_path")"
+
+  if [[ -n "$structure" ]]; then
+    info "Detected components:"
+    while IFS= read -r component; do
+      [[ -n "$component" ]] || continue
+      info "  - $component"
+    done <<< "$structure"
+    info ""
+  fi
+
+  # Count files
+  local file_count
+  file_count="$(find "$source_path" -type f 2>/dev/null | wc -l)"
+  info "Files to install: $file_count"
+
+  # Check for conflicts
+  if [[ -d "$target_path" ]] && [[ -n "$(ls -A "$target_path" 2>/dev/null)" ]]; then
+    info "Target directory is not empty - will need --force to overwrite"
+  fi
+
+  # Check omarchy configs
+  local omarchy_configs
+  omarchy_configs="$(detect_omarchy_configs "$source_path")"
+
+  if [[ -n "$omarchy_configs" ]]; then
+    info ""
+    info "Omarchy configs detected:"
+    while IFS= read -r cfg; do
+      [[ -n "$cfg" ]] || continue
+      info "  - $cfg"
+    done <<< "$omarchy_configs"
+    info ""
+    info "After installation, you may want to restart:"
+    while IFS= read -r cfg; do
+      [[ -n "$cfg" ]] || continue
+      case "$cfg" in
+        hypr) info "  omarchy-restart-hyprland (or hyprctl reload)" ;;
+        waybar) info "  omarchy-restart-waybar" ;;
+        walker) info "  omarchy-restart-walker" ;;
+        alacritty | kitty | ghostty) info "  omarchy-restart-terminal" ;;
+        mako) info "  omarchy-restart-mako" ;;
+      esac
+    done <<< "$omarchy_configs"
+  fi
+
+  info ""
+  info "Run without --dry-run to perform installation"
+}
+
+# ============================================================================
+# Omarchy integration
+# ============================================================================
+
+is_omarchy_system() {
+  command -v omarchy-version > /dev/null 2>&1
+}
+
+offer_omarchy_restarts() {
+  local -r source_path="$1"
+
+  if ! is_omarchy_system; then
+    return 0
+  fi
+
+  local omarchy_configs
+  omarchy_configs="$(detect_omarchy_configs "$source_path")"
+
+  if [[ -z "$omarchy_configs" ]]; then
+    return 0
+  fi
+
+  info ""
+  info "Omarchy configs were installed."
+
+  if [[ "${DAT_AUTO_RESTART_SERVICES:-}" == "true" ]]; then
+    info "Auto-restarting services..."
+    restart_omarchy_services "$omarchy_configs"
+    return 0
+  fi
+
+  if prompt_confirm "Restart affected services?"; then
+    restart_omarchy_services "$omarchy_configs"
+  fi
+}
+
+restart_omarchy_services() {
+  local -r configs="$1"
+
+  while IFS= read -r cfg; do
+    [[ -n "$cfg" ]] || continue
+    case "$cfg" in
+      hypr)
+        if command -v hyprctl > /dev/null 2>&1; then
+          info "  Reloading Hyprland..."
+          hyprctl reload || true
+        fi
+        ;;
+      waybar)
+        if command -v omarchy-restart-waybar > /dev/null 2>&1; then
+          info "  Restarting Waybar..."
+          omarchy-restart-waybar || true
+        fi
+        ;;
+      walker)
+        if command -v omarchy-restart-walker > /dev/null 2>&1; then
+          info "  Restarting Walker..."
+          omarchy-restart-walker || true
+        fi
+        ;;
+      alacritty | kitty | ghostty)
+        info "  Note: Terminal restart requires closing and reopening"
+        ;;
+      mako)
+        if command -v omarchy-restart-mako > /dev/null 2>&1; then
+          info "  Restarting Mako..."
+          omarchy-restart-mako || true
+        fi
+        ;;
+    esac
+  done <<< "$configs"
+}
+
+# ============================================================================
+# Interactive mode
+# ============================================================================
+
+run_interactive() {
+  info "Interactive dotfiles installation"
+  info "================================="
+  info ""
+
+  # Select source type
+  local source_type
+  source_type="$(prompt_select "Select source type:" "Local directory
+Git URL")" || {
+    error "Selection cancelled"
+    exit 1
+  }
+
+  local source_path=""
+
+  case "$source_type" in
+    "Local directory")
+      source_path="$(prompt_input "Enter local path" "$HOME")"
+      source_path="$(eval echo "$source_path")"
+
+      if [[ ! -d "$source_path" ]]; then
+        error "Directory not found: $source_path"
+        exit 2
+      fi
+      ;;
+    "Git URL")
+      source_path="$(prompt_input "Enter git URL" "")"
+
+      if [[ -z "$source_path" ]]; then
+        error "Git URL is required"
+        exit 2
+      fi
+      ;;
+  esac
+
+  # Select target
+  local default_target="${DAT_DOTFILES_TARGET:-$DOTFILES_PATH}"
+  local target_path
+  target_path="$(prompt_input "Target directory" "$default_target")"
+  target_path="$(eval echo "$target_path")"
+
+  # Preview
+  info ""
+  info "Source: $source_path"
+  info "Target: $target_path"
+
+  if [[ -d "$source_path" ]]; then
+    local structure
+    structure="$(detect_structure "$source_path")"
+    if [[ -n "$structure" ]]; then
+      info ""
+      info "Detected:"
+      while IFS= read -r comp; do
+        [[ -n "$comp" ]] || continue
+        info "  - $comp"
+      done <<< "$structure"
+    fi
+  fi
+
+  info ""
+  if ! prompt_confirm "Proceed with installation?"; then
+    info "Installation cancelled"
+    exit 0
+  fi
+
+  # Check force needed
+  local force_flag=""
+  if [[ -d "$target_path" ]] && [[ -n "$(ls -A "$target_path" 2>/dev/null)" ]]; then
+    if prompt_confirm "Target is not empty. Overwrite?" "n"; then
+      force_flag="--force"
+    else
+      error "Target path is not empty. Aborting."
+      exit 1
+    fi
+  fi
+
+  # Execute
+  exec "$0" "$source_path" "$target_path" $force_flag
+}
+
+# ============================================================================
+# Core installation logic
+# ============================================================================
+
+is_git_url() {
+  local -r path="$1"
+  [[ "$path" =~ ^https?:// ]] || [[ "$path" =~ ^git@ ]] || [[ "$path" =~ \.git$ ]]
+}
+
+is_git_repo() {
+  local -r path="$1"
+  [[ -d "$path/.git" ]]
+}
+
+do_install() {
+  local -r source="$1"
+  local -r target_path="$2"
+  local -r force="$3"
+  local -r branch="$4"
+
+  if is_git_url "$source"; then
+    info "Cloning dotfiles from $source..."
+
+    if $force && [[ -d "$target_path/.git" ]]; then
+      rm -rf "$target_path"
+      mkdir -p "$target_path"
+    fi
+
+    if [[ -d "$target_path/.git" ]]; then
+      error "Target is already a git repository"
+      error "Use --force to remove and re-clone"
+      exit 1
+    fi
+
+    git clone --branch "$branch" "$source" "$target_path"
+    success "Dotfiles cloned to: $target_path"
+
+  elif [[ -d "$source" ]]; then
+    local source_abs
+    source_abs="$(cd "$source" && pwd)"
+
+    if [[ "$source_abs" == "$target_path" ]]; then
+      error "Source and target paths are the same"
+      exit 1
+    fi
+
+    info "Copying dotfiles from $source_abs..."
+
+    if is_git_repo "$source_abs"; then
+      if $force && [[ -d "$target_path" ]]; then
+        rm -rf "$target_path"
+      fi
+      git clone "$source_abs" "$target_path"
+      success "Dotfiles cloned from local repository to: $target_path"
+    else
+      if $force; then
+        rm -rf "${target_path:?}/"*
+      fi
+      cp -a "$source_abs/." "$target_path/"
+      success "Dotfiles copied to: $target_path"
+    fi
+
+  else
+    error "Source not found: $source"
+    error "Source must be an existing directory or a valid git URL"
+    exit 2
+  fi
+}
+
+print_next_steps() {
+  local -r source="$1"
+  local -r target_path="$2"
+
+  info ""
+  info "Next steps:"
+  info "  1. Review your dotfiles at: $target_path"
+  info "  2. Run install scripts: dat list"
+  info "  3. Set DOTFILES_PATH if needed: export DOTFILES_PATH=\"$target_path\""
+
+  # Check for install script
+  if [[ -f "$target_path/install.sh" ]]; then
+    info "  4. Run install script: $target_path/install.sh"
+  fi
+}
+
+# ============================================================================
+# Usage
+# ============================================================================
+
+usage() {
+  cat <<'EOF'
+Install dotfiles from a given path (local directory or git repository).
+
+Usage:
+  install-dotfiles [options] [source] [target_path]
+  install-dotfiles -i | --interactive
+  install-dotfiles --dry-run <source> [target_path]
+  install-dotfiles --config
+  install-dotfiles -h | --help
+
+Arguments:
+  source       Local path or git URL to clone/copy dotfiles from
+  target_path  Where to install dotfiles (default: $DOTFILES_PATH or ~/.dotfiles)
+
+Options:
+  -i, --interactive   Run in interactive mode with prompts
+  --dry-run           Preview changes without making them
+  --force             Overwrite existing files in target directory
+  --branch <name>     Git branch to clone (default: main)
+  --no-omarchy        Skip omarchy integration (no service restarts)
+  --config            Initialize or show config file location
+
+Environment:
+  DOTFILES_PATH       Default target path for dotfiles
+  DAT_DOTFILES_TARGET Persistent default from config file
+  DAT_OMARCHY_INTEGRATION  Enable/disable omarchy detection (default: true)
+  DAT_AUTO_RESTART_SERVICES  Auto-restart without prompting
+
+Examples:
+  install-dotfiles                                    # Interactive mode
+  install-dotfiles ~/backups/my-dotfiles              # Copy from local
+  install-dotfiles https://github.com/user/dotfiles   # Clone from git
+  install-dotfiles --dry-run ~/my-dotfiles            # Preview changes
+  install-dotfiles ~/dotfiles ~/.dotfiles --force     # Overwrite existing
+EOF
+}
+
+# ============================================================================
+# Main
+# ============================================================================
+
+main() {
+  load_config
+
+  local source=""
+  local target_path="${DAT_DOTFILES_TARGET:-$DOTFILES_PATH}"
+  local force=false
+  local branch="main"
+  local dry_run=false
+  local interactive=false
+  local omarchy_integration="${DAT_OMARCHY_INTEGRATION:-true}"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      -i | --interactive)
+        interactive=true
+        ;;
+      --dry-run)
+        dry_run=true
+        ;;
+      --force)
+        force=true
+        ;;
+      --branch)
+        shift
+        if [[ $# -eq 0 ]]; then
+          error "--branch requires a value"
+          exit 2
+        fi
+        branch="$1"
+        ;;
+      --no-omarchy)
+        omarchy_integration="false"
+        ;;
+      --config)
+        init_config
+        exit 0
+        ;;
+      -*)
+        error "Unknown option: $1"
+        usage >&2
+        exit 2
+        ;;
+      *)
+        if [[ -z "$source" ]]; then
+          source="$1"
+        else
+          target_path="$1"
+        fi
+        ;;
+    esac
+    shift
+  done
+
+  # Interactive mode if no source and TTY available
+  if [[ -z "$source" ]]; then
+    if [[ -t 0 && -t 1 ]] || $interactive; then
+      run_interactive
+      exit 0
+    else
+      error "Source path is required (use --interactive for prompts)"
+      usage >&2
+      exit 2
+    fi
+  fi
+
+  target_path="$(eval echo "$target_path")"
+
+  # Dry run mode
+  if $dry_run; then
+    if is_git_url "$source"; then
+      info "Source is a git URL - structure detection requires clone"
+      info "Source: $source"
+      info "Target: $target_path"
+      info "Branch: $branch"
+    elif [[ -d "$source" ]]; then
+      source="$(cd "$source" && pwd)"
+      dry_run_report "$source" "$target_path"
+    else
+      error "Source not found: $source"
+      exit 2
+    fi
+    exit 0
+  fi
+
+  # Validate target
+  if [[ -d "$target_path" ]] && [[ -n "$(ls -A "$target_path" 2>/dev/null)" ]]; then
+    if ! $force; then
+      error "Target path is not empty: $target_path"
+      error "Use --force to overwrite existing files"
+      exit 1
+    fi
+    warn "Overwriting existing files in $target_path"
+  fi
+
+  mkdir -p "$target_path"
+
+  # Perform installation
+  do_install "$source" "$target_path" "$force" "$branch"
+
+  # Omarchy integration
+  if [[ "$omarchy_integration" == "true" ]]; then
+    local resolved_source="$source"
+    if [[ -d "$source" ]]; then
+      resolved_source="$(cd "$source" && pwd)"
+    else
+      resolved_source="$target_path"
+    fi
+    offer_omarchy_restarts "$resolved_source"
+  fi
+
+  # Print next steps
+  print_next_steps "$source" "$target_path"
+}
+
+main "$@"

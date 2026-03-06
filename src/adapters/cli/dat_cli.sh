@@ -29,6 +29,7 @@ Usage:
   dat self status
   dat self update [--check]
   dat self install-dotfiles <source> [target] [--force] [--branch <branch>]
+  dat self link-omarchy-env [--force] [--target <path>]
   dat update [--check]
   dat [--source dotfiles|dotly] <app> [args...]
   dat -h | --help
@@ -162,12 +163,14 @@ Available commands:
   self update
   self update --check
   self install-dotfiles <source> [target]
+  self link-omarchy-env
   run
 
 Examples:
   dat <app>
   dat self update
   dat self install-dotfiles ~/my-dotfiles
+  dat self link-omarchy-env
   dat list --json
 EOF
 
@@ -198,6 +201,8 @@ dat::cli::interactive_home_menu() {
   options+="command: self update --check"
   options+=$'\n'
   options+="command: self install-dotfiles"
+  options+=$'\n'
+  options+="command: self link-omarchy-env"
 
   if [[ -n "$installers" ]]; then
     while IFS= read -r installer; do
@@ -227,6 +232,9 @@ dat::cli::interactive_home_menu() {
     dat::adapter::output::info "Usage: dat self install-dotfiles <source> [target] [--force] [--branch <branch>]"
     dat::adapter::output::info "Run 'dat self install-dotfiles --help' for more details"
     ;;
+  "command: self link-omarchy-env")
+    dat::cli::run_self_script link-omarchy-env
+    ;;
   installer:*)
     local installer_name="${selected#installer: }"
     dat::application::run_installer "$installer_name" "$source"
@@ -252,8 +260,11 @@ dat::cli::self_command() {
   install-dotfiles)
     dat::cli::run_self_script install-dotfiles "$@"
     ;;
+  link-omarchy-env)
+    dat::cli::run_self_script link-omarchy-env "$@"
+    ;;
   "")
-    dat::adapter::output::error "Missing self subcommand: use 'status', 'update', or 'install-dotfiles'"
+    dat::adapter::output::error "Missing self subcommand: use 'status', 'update', 'install-dotfiles', or 'link-omarchy-env'"
     return "$DAT_EXIT_NOT_FOUND"
     ;;
   *)

@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DAT_HOME="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+SOURCE_FILE="$DAT_HOME/templates/omarchy/dat.sh"
+TARGET_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/env"
+TARGET_FILE="$TARGET_DIR/dat.sh"
+
+usage() {
+  cat <<'EOF'
+Create a symlink for dat's Omarchy environment profile.
+
+Usage:
+  link-omarchy-env
+  link-omarchy-env --force
+  link-omarchy-env --target /custom/path/dat.sh
+  link-omarchy-env -h | --help
+EOF
+}
+
+force=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --force)
+    force=true
+    ;;
+  --target)
+    TARGET_FILE="${2:-}"
+    if [[ -z "$TARGET_FILE" ]]; then
+      echo "Missing value for --target" >&2
+      exit 1
+    fi
+    TARGET_DIR="$(dirname "$TARGET_FILE")"
+    shift
+    ;;
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "Unknown option: $1" >&2
+    usage >&2
+    exit 1
+    ;;
+  esac
+  shift
+done
+
+if [[ ! -f "$SOURCE_FILE" ]]; then
+  echo "Omarchy profile template not found: $SOURCE_FILE" >&2
+  exit 1
+fi
+
+mkdir -p "$TARGET_DIR"
+
+if [[ -L "$TARGET_FILE" ]]; then
+  current_target="$(readlink "$TARGET_FILE")"
+  if [[ "$current_target" == "$SOURCE_FILE" ]]; then
+    echo "Omarchy profile already linked: $TARGET_FILE -> $SOURCE_FILE"
+    exit 0
+  fi
+fi
+
+if [[ -e "$TARGET_FILE" || -L "$TARGET_FILE" ]]; then
+  if ! $force; then
+    echo "Target exists: $TARGET_FILE" >&2
+    echo "Use --force to replace it." >&2
+    exit 1
+  fi
+  rm -f "$TARGET_FILE"
+fi
+
+ln -s "$SOURCE_FILE" "$TARGET_FILE"
+echo "Linked Omarchy profile: $TARGET_FILE -> $SOURCE_FILE"
+echo "Add this to your shell config if needed:"
+echo "  source \"$TARGET_FILE\""

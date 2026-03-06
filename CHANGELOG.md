@@ -12,3 +12,5 @@
 - Add `dotfiles` installer and bundled dotfiles template structure.
 - Add `dat self update`/`dat update` and `dat self status` commands.
 - Add `dat` home view with available commands and installers.
+- Add `dat self link-omarchy-env` to symlink a maintained Omarchy env profile.
+- Add Omarchy guidance for rofi/launcher usage and when `dat` should or should not be used.

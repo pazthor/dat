@@ -6,7 +6,7 @@ _dat_completions() {
   _init_completion || return
 
   local commands="list run self update"
-  local self_commands="status update install-dotfiles"
+  local self_commands="status update install-dotfiles link-omarchy-env"
   local sources="dotfiles dotly"
 
   case "${words[1]}" in
@@ -27,6 +27,12 @@ _dat_completions() {
         update)
           case "$prev" in
             *) COMPREPLY=($(compgen -W "--check" -- "$cur")) ;;
+          esac
+          ;;
+        link-omarchy-env)
+          case "$prev" in
+            --target) COMPREPLY=($(compgen -f -- "$cur")) ;;
+            *) COMPREPLY=($(compgen -W "--force --target" -- "$cur")) ;;
           esac
           ;;
         *) COMPREPLY=($(compgen -W "$self_commands" -- "$cur")) ;;

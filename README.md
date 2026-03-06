@@ -103,6 +103,7 @@ dat list
 dat list --json
 dat self status
 dat self update
+dat self link-omarchy-env
 dat update
 dat <app> [args...]
 dat --source dotly <app>
@@ -161,6 +162,13 @@ dat list --source dotly
 ### Omarchy integration
 
 `dat` works well on Omarchy systems for both interactive and scripted workflows.
+See [docs/omarchy.md](docs/omarchy.md) for a dedicated desktop + CI profile.
+
+Quick setup on Omarchy:
+
+```bash
+dat self link-omarchy-env
+```
 
 Recommended environment setup:
 

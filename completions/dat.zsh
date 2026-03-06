@@ -12,6 +12,7 @@ _dat() {
     'status:Show dat status'
     'update:Update dat from origin'
     'install-dotfiles:Install dotfiles from source'
+    'link-omarchy-env:Link Omarchy env profile'
   )
   sources=(dotfiles dotly)
 
@@ -58,6 +59,11 @@ _dat() {
                   ;;
                 update)
                   _arguments '--check[Check only, no update]'
+                  ;;
+                link-omarchy-env)
+                  _arguments \
+                    '--force[Replace existing target]' \
+                    '--target[Custom target path]:target:_files'
                   ;;
               esac
               ;;

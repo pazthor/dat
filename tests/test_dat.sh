@@ -101,4 +101,27 @@ if ! grep -q '^branch: ' <<<"$self_status_output"; then
   fail "self status should include branch"
 fi
 
+XDG_CONFIG_TEST_DIR="$TEMP_DIR/xdg-config"
+mkdir -p "$XDG_CONFIG_TEST_DIR"
+
+link_output="$(
+  DAT_HOME="$ROOT_DIR" \
+  XDG_CONFIG_HOME="$XDG_CONFIG_TEST_DIR" \
+  "$DAT_BIN" self link-omarchy-env
+)"
+
+expected_link_target="$ROOT_DIR/templates/omarchy/dat.sh"
+linked_file="$XDG_CONFIG_TEST_DIR/omarchy/env/dat.sh"
+
+if [[ ! -L "$linked_file" ]]; then
+  fail "link-omarchy-env should create a symlink"
+fi
+
+actual_link_target="$(readlink "$linked_file")"
+assert_eq "$expected_link_target" "$actual_link_target" "link-omarchy-env should point to managed template"
+
+if ! grep -q '^Linked Omarchy profile:' <<<"$link_output"; then
+  fail "link-omarchy-env should report link creation"
+fi
+
 echo "OK"
